@@ -12,7 +12,7 @@ A Computer Vision-based scorer for Riichi mahjong using OpenCV.
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.13.5 or higher
 - pip (Python package installer)
 
 ### Installation
@@ -36,9 +36,15 @@ A Computer Vision-based scorer for Riichi mahjong using OpenCV.
    pip install -e .
    ```
 
-3. **Test the installation**:
+3. **Verify Python 3.13.5 setup**:
+
    ```bash
-   python test_opencv.py
+   python3 verify_python_version.py
+   ```
+
+4. **Test the installation**:
+   ```bash
+   python3 tests/test_opencv.py
    ```
 
 ### Dependencies
@@ -54,29 +60,35 @@ A Computer Vision-based scorer for Riichi mahjong using OpenCV.
 
 ### Quick Start
 
-Run the test script to verify everything is working:
+First, verify your Python 3.13.5 setup:
 
 ```bash
-python tests/test_opencv.py
+python3 verify_python_version.py
+```
+
+Then run the test script to verify everything is working:
+
+```bash
+python3 tests/test_opencv.py
 ```
 
 ### Run All Tests
 
 ```bash
-python tests/run_all_tests.py
+python3 tests/run_all_tests.py
 ```
 
 ### Individual Tests
 
 ```bash
 # Test OpenCV installation
-python tests/test_opencv.py
+python3 tests/test_opencv.py
 
 # Test modular design (no templates required)
-python tests/test_separation_no_templates.py
+python3 tests/test_separation_no_templates.py
 
 # Example usage
-python tests/example_usage.py
+python3 tests/example_usage.py
 ```
 
 ## Project Structure
