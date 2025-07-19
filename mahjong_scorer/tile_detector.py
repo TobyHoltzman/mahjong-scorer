@@ -11,9 +11,9 @@ from .tile_recognition import TileRecognizer
 class TileDetector:
     """Detects mahjong tiles using computer vision."""
     
-    def __init__(self):
+    def __init__(self, model_path: Optional[str] = None):
         """Initialize the tile detector."""
-        self.recognizer = TileRecognizer()
+        self.recognizer = TileRecognizer(model_path=model_path)
         self.detection_params = {
             'min_contour_area': 1000,
             'max_contour_area': 50000,
@@ -126,17 +126,19 @@ class TileDetector:
         
         return detected_tiles
     
-    def load_tile_templates(self, template_dir: str = "templates") -> bool:
+    def load_model(self, model_path: str) -> bool:
         """
-        Load tile templates for recognition.
+        Load the CNN model for recognition.
         
         Args:
-            template_dir: Directory containing tile template images
+            model_path: Path to the trained model file
             
         Returns:
-            True if templates loaded successfully
+            True if model loaded successfully
         """
-        return self.recognizer.load_templates(template_dir)
+        return self.recognizer.load_model(model_path)
+    
+
     
     def calibrate(self, calibration_image: np.ndarray):
         """
