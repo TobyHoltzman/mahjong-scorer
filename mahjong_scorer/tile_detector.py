@@ -5,15 +5,21 @@ Tile detection module for mahjong scorer using OpenCV.
 import cv2
 import numpy as np
 from typing import List, Tuple, Optional
+from .tile_recognition import TileRecognizer
 
 
 class TileDetector:
-    """Detects and recognizes mahjong tiles using computer vision."""
+    """Detects mahjong tiles using computer vision."""
     
     def __init__(self):
         """Initialize the tile detector."""
-        self.tile_templates = {}  # Will store tile templates for matching
-        self.min_confidence = 0.7
+        self.recognizer = TileRecognizer()
+        self.detection_params = {
+            'min_contour_area': 1000,
+            'max_contour_area': 50000,
+            'min_aspect_ratio': 0.5,
+            'max_aspect_ratio': 2.0,
+        }
         
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """
@@ -57,10 +63,12 @@ class TileDetector:
         for contour in contours:
             # Filter contours by area and aspect ratio
             area = cv2.contourArea(contour)
-            if area > 1000:  # Minimum area threshold
+            if (self.detection_params['min_contour_area'] < area < 
+                self.detection_params['max_contour_area']):
                 x, y, w, h = cv2.boundingRect(contour)
                 aspect_ratio = w / h
-                if 0.5 < aspect_ratio < 2.0:  # Reasonable tile aspect ratio
+                if (self.detection_params['min_aspect_ratio'] < aspect_ratio < 
+                    self.detection_params['max_aspect_ratio']):
                     tile_contours.append(contour)
         
         return tile_contours
@@ -81,7 +89,7 @@ class TileDetector:
     
     def recognize_tile(self, tile_image: np.ndarray) -> Optional[str]:
         """
-        Recognize the type of mahjong tile.
+        Recognize the type of mahjong tile using the recognizer.
         
         Args:
             tile_image: Image of a single tile
@@ -89,11 +97,7 @@ class TileDetector:
         Returns:
             Tile type (e.g., '1m', '2p', '3s', 'east', etc.) or None if unknown
         """
-        # This is a placeholder - you'll need to implement actual tile recognition
-        # using template matching, machine learning, or other CV techniques
-        
-        # For now, return None to indicate unknown tile
-        return None
+        return self.recognizer.recognize_tile(tile_image)
     
     def detect_tiles(self, image: np.ndarray) -> List[Tuple[np.ndarray, str]]:
         """
@@ -122,16 +126,17 @@ class TileDetector:
         
         return detected_tiles
     
-    def load_tile_templates(self, template_dir: str):
+    def load_tile_templates(self, template_dir: str = "templates") -> bool:
         """
         Load tile templates for recognition.
         
         Args:
             template_dir: Directory containing tile template images
+            
+        Returns:
+            True if templates loaded successfully
         """
-        # TODO: Implement template loading
-        # This would load reference images for each tile type
-        pass
+        return self.recognizer.load_templates(template_dir)
     
     def calibrate(self, calibration_image: np.ndarray):
         """
@@ -142,4 +147,42 @@ class TileDetector:
         """
         # TODO: Implement calibration
         # This would help adjust detection parameters
-        pass 
+        pass
+    
+    def set_detection_parameters(self, **kwargs):
+        """
+        Set detection parameters.
+        
+        Args:
+            **kwargs: Parameters to update (min_contour_area, max_contour_area, etc.)
+        """
+        for key, value in kwargs.items():
+            if key in self.detection_params:
+                self.detection_params[key] = value
+    
+    def get_detection_parameters(self) -> dict:
+        """
+        Get current detection parameters.
+        
+        Returns:
+            Dictionary of current detection parameters
+        """
+        return self.detection_params.copy()
+    
+    def set_confidence_threshold(self, threshold: float):
+        """
+        Set the confidence threshold for recognition.
+        
+        Args:
+            threshold: New confidence threshold (0.0 to 1.0)
+        """
+        self.recognizer.set_confidence_threshold(threshold)
+    
+    def get_available_tiles(self) -> List[str]:
+        """
+        Get list of available tile types.
+        
+        Returns:
+            List of tile names that can be recognized
+        """
+        return self.recognizer.get_available_tiles() 

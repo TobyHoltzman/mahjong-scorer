@@ -204,6 +204,10 @@ test_images/
 *.jpg
 *.png
 !templates/*.png
+
+# Test files (uncomment if you want to ignore certain test files)
+# tests/*.pyc
+# tests/__pycache__/
 .cursorignore
 .cursorindexingignore
 
