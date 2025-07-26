@@ -23,7 +23,7 @@ from tile_recognition import MahjongTileCNN
 class MahjongTileDataset(Dataset):
     """Dataset for mahjong tile images."""
     
-    def __init__(self, data_dir: str, transform=None, generate_synthetic: bool = False):
+    def __init__(self, data_dir: str, transform=None, generate_synthetic: bool = True):
         """
         Initialize the dataset.
         
@@ -213,7 +213,7 @@ def train_cnn_model(data_dir: str = "training_data",
     ])
     
     # Create dataset
-    dataset = MahjongTileDataset(data_dir, transform=transform, generate_synthetic=True)
+    dataset = MahjongTileDataset(data_dir, transform=transform, generate_synthetic=False)
     
     # Split dataset into train and validation
     train_size = int(0.8 * len(dataset))
