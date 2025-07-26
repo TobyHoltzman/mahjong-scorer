@@ -40,15 +40,127 @@ class MahjongScorer:
     
     def is_valid_hand(self, tiles: List[str]) -> bool:
         """
-        Check if a hand is valid (13 tiles).
+        Check if a hand forms a valid winning pattern (14 tiles).
+        Must be composed of 4 groups (kan/triplets/sequences) + 1 pair,
+        or seven pairs, or thirteen orphans.
         
         Args:
             tiles: List of tile strings
             
         Returns:
-            True if valid, False otherwise
+            True if valid winning hand, False otherwise
         """
-        return len(tiles) == 13
+        # Check for exactly 14 tiles
+        if len(tiles) < 14:
+            return False
+            
+        # Check tile counts (no more than 4 of each)
+        tile_counts = self.parse_tiles(tiles)
+        if any(count > 4 for count in tile_counts.values()):
+            return False
+            
+        # Check for thirteen orphans (kokushi musou)
+        terminals = ['1m', '9m', '1p', '9p', '1s', '9s'] + self.honors
+        if self._is_thirteen_orphans(tiles, terminals):
+            return True
+            
+        # Check for seven pairs (chiitoitsu)
+        if self._is_seven_pairs(tiles):
+            return True
+            
+        # Check for standard hand (4 groups + pair)
+        return self._is_standard_win(tiles)
+        
+    def _is_thirteen_orphans(self, tiles: List[str], terminals: List[str]) -> bool:
+        """Check if hand is thirteen orphans (kokushi musou)."""
+        # Must contain all terminals and honors
+        unique_tiles = set(tiles)
+        if not all(t in unique_tiles for t in terminals):
+            return False
+            
+        # Must have exactly one duplicate from terminals/honors
+        tile_counts = self.parse_tiles(tiles)
+        doubles = sum(1 for t in terminals if tile_counts.get(t, 0) == 2)
+        singles = sum(1 for t in terminals if tile_counts.get(t, 0) == 1)
+        
+        return doubles == 1 and singles == 12
+        
+    def _is_seven_pairs(self, tiles: List[str]) -> bool:
+        """Check if hand is seven pairs (chiitoitsu)."""
+        tile_counts = self.parse_tiles(tiles)
+        pairs = sum(1 for count in tile_counts.values() if count == 2)
+        return pairs == 7 and len(tile_counts) == 7
+        
+    def _is_standard_win(self, tiles: List[str]) -> bool:
+        """Check if tiles form a standard winning hand (4 groups + pair)."""
+        tile_counts = self.parse_tiles(tiles)
+        
+        # Try each tile type as the pair
+        for tile, count in tile_counts.items():
+            if count >= 2:
+                # Remove pair and check if remaining tiles form valid groups
+                remaining = tiles.copy()
+                remaining.remove(tile)
+                remaining.remove(tile)
+                groups = self._can_form_groups(remaining)
+                if groups == 4:
+                    return True
+        
+        return False
+        
+    def _can_form_groups(self, tiles: List[str]) -> int:
+        """
+        Check if tiles can be arranged into 4 groups (kan/triplets/sequences).
+        A group can be:
+        - Kan (four of a kind)
+        - Triplet (three of a kind)
+        - Sequence (three consecutive numbers in same suit)
+        """
+        if not tiles:
+            return 0
+            
+        tile_counts = self.parse_tiles(tiles)
+        first_tile = tiles[0]
+        
+        # Try forming a kan (four of a kind)
+        if tile_counts[first_tile] >= 4:
+            remaining = tiles.copy()
+            for _ in range(4):
+                remaining.remove(first_tile)
+            groups = self._can_form_groups(remaining)
+            if groups >= 0:
+                return 1 + groups
+                
+        # Try forming a triplet
+        if tile_counts[first_tile] >= 3:
+            remaining = tiles.copy()
+            for _ in range(3):
+                remaining.remove(first_tile)
+            groups = self._can_form_groups(remaining)
+            if groups >= 0:
+                return 1 + groups
+                
+        # Try forming a sequence if it's a numbered tile
+        if first_tile[-1] in self.suits:  # is a suited tile
+            number = int(first_tile[0])
+            suit = first_tile[-1]
+            next_tile = f"{number+1}{suit}"
+            next_next_tile = f"{number+2}{suit}"
+            
+            # Check if we can form a sequence
+            if (number <= 7 and  # sequence won't exceed 9
+                next_tile in tile_counts and
+                next_next_tile in tile_counts):
+                # Remove sequence and recurse
+                remaining = tiles.copy()
+                remaining.remove(first_tile)
+                remaining.remove(next_tile)
+                remaining.remove(next_next_tile)
+                groups = self._can_form_groups(remaining)
+                if groups >= 0:
+                    return 1 + groups
+                    
+        return -1
     
     def count_yaku(self, tiles: List[str]) -> List[Tuple[str, int]]:
         """
