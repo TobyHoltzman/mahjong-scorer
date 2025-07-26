@@ -7,6 +7,12 @@ Usage: python test_recognizer.py <image_path> [model_path] [confidence_threshold
 import sys
 import cv2
 import os
+from pathlib import Path
+
+# Add parent directory to path
+parent_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
+
 from mahjong_scorer.tile_recognition import TileRecognizer
 
 def main():

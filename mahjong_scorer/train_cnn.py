@@ -232,7 +232,7 @@ def train_cnn_model(data_dir: str = "training_data",
     # Loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.5)  # Slower decay
     
     # Training history
     train_losses = []
@@ -373,11 +373,11 @@ if __name__ == "__main__":
         data_dir="training_data",
         model_save_path="models/mahjong_cnn.pth",
         num_epochs=60,
-        batch_size=32,
+        batch_size=16,  # Smaller batch size for better generalization with limited data
         learning_rate=0.001
     )
     
     print("Training completed!")
     print(f"Model can recognize {len(class_names)} tile types:")
     for i, class_name in enumerate(class_names):
-        print(f"  {i+1:2d}. {class_name}") 
+        print(f"  {i+1:2d}. {class_name}")
