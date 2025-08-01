@@ -13,6 +13,9 @@ setup(
         "matplotlib>=3.8.0",
         "Pillow>=10.1.0",
         "scikit-image>=0.22.0",
+        "torch>=2.1.0",
+        "torchvision>=0.16.0",
+        "tqdm>=4.66.0",
     ],
     python_requires=">=3.13.5",
     classifiers=[

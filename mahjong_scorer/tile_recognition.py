@@ -1,95 +1,209 @@
 """
-Tile recognition module for mahjong tiles using template matching.
+Tile recognition module for mahjong tiles using CNN with PyTorch.
 """
 
 import cv2
 import numpy as np
 import os
-import glob
+import json
 from typing import Dict, Optional, Tuple, List
+
+# Import PyTorch components
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision.transforms as transforms
+from PIL import Image
+import matplotlib.pyplot as plt
+
+
+class MahjongTileCNN(nn.Module):
+    """CNN architecture for mahjong tile recognition."""
+    
+    def __init__(self, num_classes: int = 34):
+        """
+        Initialize the CNN model.
+        
+        Args:
+            num_classes: Number of tile classes (34 for standard mahjong)
+        """
+        super(MahjongTileCNN, self).__init__()
+        
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        
+        # Batch normalization
+        self.bn1 = nn.BatchNorm2d(32)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.bn4 = nn.BatchNorm2d(256)
+        
+        # Pooling
+        self.pool = nn.MaxPool2d(2, 2)
+        
+        # Dropout
+        self.dropout = nn.Dropout(0.5)
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(256 * 4 * 4, 512)  # Assuming 64x64 input -> 4x4 after pooling
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, num_classes)
+        
+    def forward(self, x):
+        """Forward pass through the network."""
+        # Convolutional layers with ReLU and pooling
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.bn3(self.conv3(x))))
+        x = self.pool(F.relu(self.bn4(self.conv4(x))))
+        
+        # Flatten
+        x = x.view(x.size(0), -1)
+        
+        # Fully connected layers
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.fc3(x)
+        
+        return x
 
 
 class TileRecognizer:
-    """Handles recognition of mahjong tiles using template matching."""
+    """Handles recognition of mahjong tiles using CNN with PyTorch."""
     
-    def __init__(self, min_confidence: float = 0.7):
-        """Initialize the tile recognizer."""
-        self.tile_templates: Dict[str, np.ndarray] = {}
+    def __init__(self, min_confidence: float = 0.7, model_path: Optional[str] = None, device: str = "auto"):
+        """
+        Initialize the tile recognizer.
+        
+        Args:
+            min_confidence: Minimum confidence threshold
+            model_path: Path to pre-trained CNN model
+            device: Device to use for PyTorch ('cpu', 'cuda', or 'auto')
+        """
         self.min_confidence = min_confidence
-        self.template_loaded = False
+        self.device = self._get_device(device)
+        self.model = None
+        self.class_names = []
+        self.transform = self._get_transforms()
         
-    def load_templates(self, template_dir: str = "templates") -> bool:
-        """
-        Load tile templates for recognition.
-        
-        Args:
-            template_dir: Directory containing tile template images
-            
-        Returns:
-            True if templates loaded successfully, False otherwise
-        """
-        if not os.path.exists(template_dir):
-            print(f"Template directory not found: {template_dir}")
-            return False
-            
-        self.tile_templates = {}
-        
-        # Load all PNG files in the template directory
-        template_files = glob.glob(os.path.join(template_dir, "*.png"))
-        
-        if not template_files:
-            print(f"No template files found in {template_dir}")
-            return False
-        
-        for template_file in template_files:
-            # Extract tile name from filename
-            tile_name = os.path.splitext(os.path.basename(template_file))[0]
-            
-            # Load template image
-            template_img = cv2.imread(template_file)
-            if template_img is not None:
-                # Convert to grayscale for template matching
-                template_gray = cv2.cvtColor(template_img, cv2.COLOR_BGR2GRAY)
-                self.tile_templates[tile_name] = template_gray
-                print(f"Loaded template: {tile_name}")
-            else:
-                print(f"Failed to load template: {template_file}")
-        
-        self.template_loaded = len(self.tile_templates) > 0
-        print(f"Loaded {len(self.tile_templates)} tile templates")
-        
-        return self.template_loaded
+        # Load model if path provided
+        if model_path and os.path.exists(model_path):
+            self.load_model(model_path)
     
-    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def _get_device(self, device: str):
+        """Get the appropriate device for PyTorch."""
+        if device == "auto":
+            return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        return torch.device(device)
+    
+    def _get_transforms(self):
+        """Get image transformations for the model."""
+        return transforms.Compose([
+            transforms.Resize((64, 64)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                               std=[0.229, 0.224, 0.225])
+        ])
+    
+    def _preprocess_image(self, image: np.ndarray):
         """
-        Preprocess image for better template matching.
+        Preprocess image for the CNN model.
         
         Args:
-            image: Input image (BGR or grayscale)
+            image: Input image (BGR format from OpenCV)
             
         Returns:
-            Preprocessed grayscale image
+            Preprocessed tensor
         """
-        # Convert to grayscale if needed
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image.copy()
+        # Convert BGR to RGB
+        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
-        # Normalize brightness and contrast
-        gray = cv2.equalizeHist(gray)
+        # Convert to PIL Image
+        pil_image = Image.fromarray(rgb_image)
         
-        # Apply slight blur to reduce noise
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        # Apply transformations
+        tensor = self.transform(pil_image)
         
-        # Normalize the image
-        gray = cv2.normalize(gray, gray, 0, 255, cv2.NORM_MINMAX)
+        # Add batch dimension
+        tensor = tensor.unsqueeze(0)
         
-        return gray
+        return tensor
+    
+    def load_model(self, model_path: str) -> bool:
+        """
+        Load a pre-trained CNN model.
+        
+        Args:
+            model_path: Path to the model file
+            
+        Returns:
+            True if model loaded successfully
+        """
+        try:
+            # Load model architecture and weights
+            checkpoint = torch.load(model_path, map_location=self.device)
+            
+            # Initialize model
+            num_classes = checkpoint.get('num_classes', 34)
+            self.model = MahjongTileCNN(num_classes=num_classes)
+            
+            # Load weights
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.model.to(self.device)
+            self.model.eval()
+            
+            # Load class names
+            self.class_names = checkpoint.get('class_names', [])
+            
+            print(f"CNN model loaded successfully from {model_path}")
+            print(f"Device: {self.device}")
+            print(f"Number of classes: {num_classes}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error loading CNN model: {e}")
+            return False
+    
+    def save_model(self, model_path: str, class_names: List[str]) -> bool:
+        """
+        Save the trained model.
+        
+        Args:
+            model_path: Path to save the model
+            class_names: List of class names
+            
+        Returns:
+            True if model saved successfully
+        """
+        try:
+            if self.model is None:
+                print("No model to save")
+                return False
+            
+            checkpoint = {
+                'model_state_dict': self.model.state_dict(),
+                'num_classes': len(class_names),
+                'class_names': class_names,
+                'architecture': 'MahjongTileCNN'
+            }
+            
+            torch.save(checkpoint, model_path)
+            print(f"Model saved to {model_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Error saving model: {e}")
+            return False
     
     def recognize_tile(self, tile_image: np.ndarray) -> Optional[str]:
         """
-        Recognize a single tile using template matching.
+        Recognize a single tile using the CNN model.
         
         Args:
             tile_image: Image of a single tile
@@ -97,44 +211,20 @@ class TileRecognizer:
         Returns:
             Tile type (e.g., '1m', '2p', '3s', 'east', etc.) or None if unknown
         """
-        if not self.template_loaded:
-            print("Warning: No templates loaded. Call load_templates() first.")
+        if self.model is None:
+            print("Warning: No model loaded. Call load_model() first.")
             return None
         
-        # Preprocess the tile image
-        tile_processed = self.preprocess_image(tile_image)
+        # Get prediction with confidence
+        tile_name, confidence = self.recognize_tile_with_confidence(tile_image)
         
-        best_match = None
-        best_confidence = 0.0
-        
-        # Try to match against all templates
-        for tile_name, template in self.tile_templates.items():
-            # Preprocess template
-            template_processed = self.preprocess_image(template)
-            
-            # Resize template to match tile size if needed
-            if template_processed.shape != tile_processed.shape:
-                template_resized = cv2.resize(template_processed, 
-                                            (tile_processed.shape[1], tile_processed.shape[0]))
-            else:
-                template_resized = template_processed
-            
-            # Perform template matching
-            result = cv2.matchTemplate(tile_processed, template_resized, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(result)
-            confidence = max_val
-            
-            if confidence > best_confidence:
-                best_confidence = confidence
-                best_match = tile_name
-        
-        # Return best match if confidence is above threshold
-        if best_confidence >= self.min_confidence:
-            return best_match
+        # Return result if confidence is above threshold
+        if confidence >= self.min_confidence:
+            return tile_name
         else:
             return None
     
-    def recognize_tile_with_confidence(self, tile_image: np.ndarray) -> Tuple[Optional[str], float]:
+    def recognize_tile_with_confidence(self, tile_image: np.ndarray) -> Tuple[str, float]:
         """
         Recognize tile and return confidence score.
         
@@ -144,34 +234,37 @@ class TileRecognizer:
         Returns:
             Tuple of (tile_name, confidence) or (None, 0.0)
         """
-        if not self.template_loaded:
-            return None, 0.0
+        if self.model is None:
+            return '', 0.0
         
-        tile_processed = self.preprocess_image(tile_image)
-        
-        best_match = None
-        best_confidence = 0.0
-        
-        for tile_name, template in self.tile_templates.items():
-            template_processed = self.preprocess_image(template)
+        try:
+            # Preprocess image
+            tensor = self._preprocess_image(tile_image)
+            tensor = tensor.to(self.device)
             
-            if template_processed.shape != tile_processed.shape:
-                template_resized = cv2.resize(template_processed, 
-                                            (tile_processed.shape[1], tile_processed.shape[0]))
+            # Get prediction
+            with torch.no_grad():
+                outputs = self.model(tensor)
+                probabilities = F.softmax(outputs, dim=1)
+                confidence, predicted_idx = torch.max(probabilities, 1)
+                
+                confidence = confidence.item()
+                predicted_idx = predicted_idx.item()
+            
+            # Get class name
+            if 0 <= predicted_idx < len(self.class_names):
+                tile_name = self.class_names[predicted_idx]
             else:
-                template_resized = template_processed
+                tile_name = ''
+                confidence = 0.0
             
-            result = cv2.matchTemplate(tile_processed, template_resized, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(result)
-            confidence = max_val
+            return tile_name, confidence
             
-            if confidence > best_confidence:
-                best_confidence = confidence
-                best_match = tile_name
-        
-        return best_match, best_confidence
+        except Exception as e:
+            print(f"Error during recognition: {e}")
+            return '', 0.0
     
-    def recognize_multiple_tiles(self, tile_images: List[np.ndarray]) -> List[Tuple[Optional[str], float]]:
+    def recognize_multiple_tiles(self, tile_images: List[np.ndarray]) -> List[Tuple[str, float]]:
         """
         Recognize multiple tiles at once.
         
@@ -194,7 +287,7 @@ class TileRecognizer:
         Returns:
             List of tile names that can be recognized
         """
-        return list(self.tile_templates.keys())
+        return self.class_names.copy()
     
     def set_confidence_threshold(self, threshold: float):
         """
@@ -208,11 +301,71 @@ class TileRecognizer:
         else:
             raise ValueError("Confidence threshold must be between 0.0 and 1.0")
     
-    def get_template_count(self) -> int:
+    def get_model_info(self) -> Dict:
         """
-        Get the number of loaded templates.
+        Get information about the loaded model.
         
         Returns:
-            Number of loaded templates
+            Dictionary with model information
         """
-        return len(self.tile_templates) 
+        if self.model is None:
+            return {"status": "No model loaded"}
+        
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        
+        return {
+            "status": "CNN model loaded",
+            "device": str(self.device),
+            "architecture": "MahjongTileCNN",
+            "total_parameters": total_params,
+            "trainable_parameters": trainable_params,
+            "num_classes": len(self.class_names),
+            "class_names": self.class_names,
+            "confidence_threshold": self.min_confidence
+        }
+    
+    def visualize_prediction(self, tile_image: np.ndarray, save_path: Optional[str] = None):
+        """
+        Visualize the model's prediction on a tile image.
+        
+        Args:
+            tile_image: Image of a single tile
+            save_path: Optional path to save the visualization
+        """
+        if self.model is None:
+            print("No model loaded for visualization")
+            return
+        
+        # Get prediction
+        tile_name, confidence = self.recognize_tile_with_confidence(tile_image)
+        
+        # Create visualization
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        
+        # Original image
+        rgb_image = cv2.cvtColor(tile_image, cv2.COLOR_BGR2RGB)
+        ax1.imshow(rgb_image)
+        ax1.set_title(f"Input Tile Image")
+        ax1.axis('off')
+        
+        # Prediction results
+        if tile_name:
+            ax2.text(0.1, 0.6, f"Predicted: {tile_name}", fontsize=14, fontweight='bold')
+            ax2.text(0.1, 0.4, f"Confidence: {confidence:.3f}", fontsize=12)
+            ax2.text(0.1, 0.2, f"Threshold: {self.min_confidence:.3f}", fontsize=12)
+        else:
+            ax2.text(0.1, 0.5, "No confident prediction", fontsize=14, color='red')
+            ax2.text(0.1, 0.3, f"Best confidence: {confidence:.3f}", fontsize=12)
+        
+        ax2.set_xlim(0, 1)
+        ax2.set_ylim(0, 1)
+        ax2.axis('off')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+            print(f"Visualization saved to {save_path}")
+        
+        plt.show() 
