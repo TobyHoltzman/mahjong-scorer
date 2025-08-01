@@ -224,7 +224,7 @@ class TileRecognizer:
         else:
             return None
     
-    def recognize_tile_with_confidence(self, tile_image: np.ndarray) -> Tuple[Optional[str], float]:
+    def recognize_tile_with_confidence(self, tile_image: np.ndarray) -> Tuple[str, float]:
         """
         Recognize tile and return confidence score.
         
@@ -235,7 +235,7 @@ class TileRecognizer:
             Tuple of (tile_name, confidence) or (None, 0.0)
         """
         if self.model is None:
-            return None, 0.0
+            return '', 0.0
         
         try:
             # Preprocess image
@@ -255,16 +255,16 @@ class TileRecognizer:
             if 0 <= predicted_idx < len(self.class_names):
                 tile_name = self.class_names[predicted_idx]
             else:
-                tile_name = None
+                tile_name = ''
                 confidence = 0.0
             
             return tile_name, confidence
             
         except Exception as e:
             print(f"Error during recognition: {e}")
-            return None, 0.0
+            return '', 0.0
     
-    def recognize_multiple_tiles(self, tile_images: List[np.ndarray]) -> List[Tuple[Optional[str], float]]:
+    def recognize_multiple_tiles(self, tile_images: List[np.ndarray]) -> List[Tuple[str, float]]:
         """
         Recognize multiple tiles at once.
         
