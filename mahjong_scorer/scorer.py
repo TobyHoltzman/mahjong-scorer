@@ -259,6 +259,28 @@ class MahjongScorer:
         sequences = self._find_sequences(tiles)
         return len(sequences) >= 4
         
+    def _find_sequences(self, tiles: List[str]) -> List[List[str]]:
+        """
+        Find all sequences in the hand, including duplicates.
+        Returns a list of sequences, where each sequence is a list of three tiles.
+        """
+        sequences = []
+        tile_counts = self.parse_tiles(tiles.copy())  # Work with a copy
+        
+        # Check each suit
+        for suit in ['m', 'p', 's']:
+            # Check each possible starting number (1-7)
+            for i in range(1, 8):
+                seq = [f"{i}{suit}", f"{i+1}{suit}", f"{i+2}{suit}"]
+                # Count how many times we can form this sequence
+                while all(tile_counts.get(t, 0) > 0 for t in seq):
+                    sequences.append(seq.copy())
+                    # Decrease tile counts
+                    for t in seq:
+                        tile_counts[t] -= 1
+                    
+        return sequences
+
     def _check_iipeikou(self, tiles: List[str]) -> bool:
         """
         Check for iipeikou (pure double sequence).
@@ -266,11 +288,12 @@ class MahjongScorer:
         """
         sequences = self._find_sequences(tiles)
         # Convert sequences to tuples for counting
-        sequence_tuples = [tuple(sorted(seq)) for seq in sequences]
+        sequence_tuples = [tuple(seq) for seq in sequences]
         # Count occurrences of each sequence
         from collections import Counter
         sequence_counts = Counter(sequence_tuples)
-        return any(count >= 2 for count in sequence_counts.values())
+        # Must have exactly one pair of identical sequences
+        return any(count == 2 for count in sequence_counts.values())
         
     def _check_sanshoku(self, tiles: List[str]) -> bool:
         """
@@ -307,22 +330,6 @@ class MahjongScorer:
                 seq3 in [set(seq) for seq in sequences]):
                 return True
         return False
-        
-    def _find_sequences(self, tiles: List[str]) -> List[List[str]]:
-        """Find all sequences in the hand."""
-        sequences = []
-        tile_counts = self.parse_tiles(tiles)
-        
-        # Check each suit
-        for suit in ['m', 'p', 's']:
-            # Check each possible starting number (1-7)
-            for i in range(1, 8):
-                seq = [f"{i}{suit}", f"{i+1}{suit}", f"{i+2}{suit}"]
-                # Verify all three tiles exist
-                if all(t in tile_counts and tile_counts[t] > 0 for t in seq):
-                    sequences.append(seq)
-                    
-        return sequences
         
     def _check_honitsu(self, tiles: List[str]) -> Optional[str]:
         """Check if hand is one suit plus honors."""

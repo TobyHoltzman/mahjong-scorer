@@ -69,6 +69,7 @@ class TestYakuCounting(unittest.TestCase):
             '1m', '1m', '1m', '1m',  # kan
             '2p', '2p', '2p', '2p',  # kan
             '3s', '3s', '3s', '3s',  # kan
+            'east', 'east', 'east',  # triplet
             'red', 'red'  # pair
         ]
         yaku = self.scorer.count_yaku(hand)
@@ -80,6 +81,7 @@ class TestYakuCounting(unittest.TestCase):
             '1m', '1m', '1m', '1m',  # kan
             '2p', '2p', '2p', '2p',  # kan
             '3s', '4s', '5s',  # sequence
+            'east', 'east', 'east',  # triplet
             'red', 'red'  # pair
         ]
         yaku = self.scorer.count_yaku(hand)
