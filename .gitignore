@@ -204,6 +204,7 @@ test_images/
 *.jpg
 *.png
 !templates/*.png
+scripts/
 
 # Test files (uncomment if you want to ignore certain test files)
 # tests/*.pyc

@@ -76,7 +76,7 @@ class MahjongTileCNN(nn.Module):
 class TileRecognizer:
     """Handles recognition of mahjong tiles using CNN with PyTorch."""
     
-    def __init__(self, min_confidence: float = 0.7, model_path: Optional[str] = None, device: str = "auto"):
+    def __init__(self, min_confidence: float = 0.7, model_path: Optional[str] = 'models/mahjong_cnn.pth', device: str = "auto"):
         """
         Initialize the tile recognizer.
         
@@ -201,29 +201,6 @@ class TileRecognizer:
             print(f"Error saving model: {e}")
             return False
     
-    def recognize_tile(self, tile_image: np.ndarray) -> Optional[str]:
-        """
-        Recognize a single tile using the CNN model.
-        
-        Args:
-            tile_image: Image of a single tile
-            
-        Returns:
-            Tile type (e.g., '1m', '2p', '3s', 'east', etc.) or None if unknown
-        """
-        if self.model is None:
-            print("Warning: No model loaded. Call load_model() first.")
-            return None
-        
-        # Get prediction with confidence
-        tile_name, confidence = self.recognize_tile_with_confidence(tile_image)
-        
-        # Return result if confidence is above threshold
-        if confidence >= self.min_confidence:
-            return tile_name
-        else:
-            return None
-    
     def recognize_tile_with_confidence(self, tile_image: np.ndarray) -> Tuple[str, float]:
         """
         Recognize tile and return confidence score.
@@ -235,6 +212,7 @@ class TileRecognizer:
             Tuple of (tile_name, confidence) or (None, 0.0)
         """
         if self.model is None:
+            print("Warning: No model loaded. Call load_model() first.")
             return '', 0.0
         
         try:
@@ -256,6 +234,7 @@ class TileRecognizer:
                 tile_name = self.class_names[predicted_idx]
             else:
                 tile_name = ''
+                print(f"Predicted index {predicted_idx} is out of range")
                 confidence = 0.0
             
             return tile_name, confidence
@@ -276,8 +255,15 @@ class TileRecognizer:
         """
         results = []
         for tile_image in tile_images:
+            cv2.imshow("Tile", tile_image)
             tile_name, confidence = self.recognize_tile_with_confidence(tile_image)
+            tile_name_rotated_180, confidence_rotated_180 = self.recognize_tile_with_confidence(cv2.rotate(tile_image, cv2.ROTATE_180))
+            tile_name, confidence = max((tile_name, confidence), (tile_name_rotated_180, confidence_rotated_180), key=lambda x: x[1])
+       
             results.append((tile_name, confidence))
+            print(f"Tile {tile_name} with confidence {confidence}")
+
+            cv2.waitKey(0)
         return results
     
     def get_available_tiles(self) -> List[str]:

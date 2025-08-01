@@ -439,7 +439,7 @@ class MahjongScorer:
         # Detect tiles in the image
         detected_tiles = self.tile_detector.detect_tiles(image)
         tiles_with_confidence = recognizer.recognize_multiple_tiles(detected_tiles)
-        tiles = [tile for tile, confidence in tiles_with_confidence if confidence > 0.7]
+        tiles = [tile for tile, confidence in tiles_with_confidence if confidence > 0.1]
         
         # Count yaku
         yaku_list = self.count_yaku(tiles)

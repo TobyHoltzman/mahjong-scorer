@@ -17,7 +17,7 @@ def test_tile_detector(show_images: bool = False):
         show_images: If True, display visualization windows
     """
     # Hardcoded path to the test image
-    FILEPATH_TILE_TEST_IMAGE = "tests/resources/tiles_green_background.png"
+    FILEPATH_TILE_TEST_IMAGE = "tests/resources/toby_test.png"
 
     # Initialize the tile detector
     print("Initializing TileDetector...")
